@@ -1,0 +1,104 @@
+import sys
+import requests
+import json
+import abc
+import My_Form
+
+class Translator(metaclass=abc.ABCMeta):
+    def __init__(self):
+        self._from_xml = None
+
+    @abc.abstractproperty
+    def _response(self):
+        """ You must override this property to get response """
+        return
+
+    def __str__(self):
+        # Дублируем
+        return self.get_result()
+
+    def get_result(self):
+        # В зависимости от возможности вытаскиваем перевод из json или xml
+        return self.__parse_json() if self._from_xml is False else self.__parse_xml()
+
+    def write_file(self, path='translated'):
+        # В зависимости от необходимости или возможности api записываем файл
+        return self.__write_json(path) if self._from_xml is False else self.__write_xml(path)
+
+    def __parse_xml(self):
+        root = etree.fromstring(self._response)
+        return '; '.join([i.text for i in root])
+
+    def __parse_json(self):
+        return '; '.join(self._response['text'])
+
+    def __write_xml(self, path):
+        try:
+            with open(path + '.xml', 'wb') as f:
+                f.write(self._response)
+                f.close()
+            return True
+        except IOError:
+            return False
+
+    def __write_json(self, path):
+        try:
+            with open(path + '.json', 'w') as f:
+                json.dump(self._response, f)
+                f.close()
+            return True
+        except IOError:
+            return False
+
+
+class YandexTranslator(Translator):
+    YANDEX_KEY = 'trnsl.1.1.20180319T114003Z.99de45bca026d2d0.a2cc3a6548199a463c13658c752f019ea3ee4d4a'
+    LINK_JSON = 'https://translate.yandex.net/api/v1.5/tr.json/translate'
+    LINK_XML = 'https://translate.yandex.net/api/v1.5/tr/translate'
+
+    def __init__(self, text, lang, fmt='plain', from_xml=False):
+        super().__init__()
+        self.data = {
+            'key': self.YANDEX_KEY,
+            'text': text,
+            'lang': lang,
+            'format': fmt,
+        }
+        self._from_xml = from_xml
+
+    @property
+    def _response(self):
+        if self._from_xml is True:
+            return requests.post(self.LINK_XML, params=self.data).content
+        else:
+            return requests.post(self.LINK_JSON, params=self.data).json()
+
+
+# Если мы планируем вызывать переводчик из консоли, следующий код, может быть полезным
+def Translater():
+    """
+    «Переведено сервисом «Яндекс.Переводчик»
+    HOW TO USE
+        First argument - is the string to translate. Text more than one word must be specified in quotes.
+        Second argument - it is a combination of source and target languages. Also you can specify just target language;
+
+    SOME EXAMPLES:
+        python3 translator.py robot en-uk
+        python3 translator.py 'Люблю грозу в начале мая' en
+
+    List of supported languages can be found here: https://tech.yandex.ru/translate/doc/dg/concepts/langs-docpage/
+    """
+
+    try:
+        text = 'bat'
+        lang = 'ru'
+        t = YandexTranslator(text, lang)
+    except IndexError:
+        t = Translater.__doc__
+    print(t, '«Переведено сервисом «Яндекс.Переводчик»')
+
+
+
+
+if __name__ == '__main__':
+    My_Form.Fomrs()
